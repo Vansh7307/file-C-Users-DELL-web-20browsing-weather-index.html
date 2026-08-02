@@ -8,7 +8,11 @@ const DEFAULT_CITY = 'Karnal';
 // is unreachable, falls back to direct OpenWeatherMap/Nominatim calls.
 const API_BASE = (window.API_BASE || (window.location.port === '5000' ? '' : 'http://' + window.location.hostname + ':5000'));
 const API_KEY = '929573d4f9cd2cf581b99af64ee069e8'; // fallback direct-API key
-const GEO_PROXY = API_BASE + '/api/geo/search?q=';
+const GEO_PROXY = function(q) {
+    if (API_BASE) return API_BASE + '/api/geo/search?q=' + encodeURIComponent(q);
+    // Fallback to direct Nominatim when no backend
+    return 'https://nominatim.openstreetmap.org/search?format=json&limit=6&q=' + encodeURIComponent(q);
+};
 
 // ---------- Cache of DOM elements ----------
 const $ = (id) => document.getElementById(id);
@@ -447,7 +451,7 @@ els.cityInput.addEventListener('input', function () {
     }
     debounceTimer = setTimeout(async function () {
         try {
-            const r = await fetch(GEO_PROXY + encodeURIComponent(q));
+const r = await fetch(GEO_PROXY(q));
             const data = await r.json();
             if (!data.length) {
                 els.searchResults.classList.remove('show');
@@ -813,7 +817,7 @@ fetchWeather = async function (city) {
         renderHistory();
         // Try to get coordinates for the map
         try {
-            const r = await fetch(GEO_PROXY + encodeURIComponent(clean));
+const r = await fetch(GEO_PROXY(clean));
             const data = await r.json();
             if (data && data.length && data[0].lat && data[0].lon) {
                 currentCoords = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };

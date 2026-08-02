@@ -29,12 +29,20 @@
 // ---------- Backend API base URL ----------
 // Auto-detect: use local backend when served from the same origin/port,
 // otherwise use the Node server port 5000 (during local development).
+// When on Firebase Hosting or opening index.html directly, returns empty
+// so all API calls fall back to localStorage + direct OpenWeatherMap calls.
 const API_BASE = (function () {
     if (window.__API_BASE__) return window.__API_BASE__;
     const host = window.location.hostname || 'localhost';
     const port = window.location.port;
+    // If we're on port 5000, the Node backend serves everything
     if (port && port === '5000') return '';
-    return 'http://' + host + ':5000';
+    // If we're on localhost with a different port (e.g. 5500, 3000), try backend
+    if (host === 'localhost' || host === '127.0.0.1') {
+        return 'http://' + host + ':5000';
+    }
+    // On Firebase Hosting, custom domain, or file:// protocol -> no backend
+    return '';
 })();
 
 // A per-browser token so the backend can keep user data separate
