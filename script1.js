@@ -6,7 +6,16 @@
 const DEFAULT_CITY = 'Karnal';
 // Backend API base (served by the Node server in /server). If the backend
 // is unreachable, falls back to direct OpenWeatherMap/Nominatim calls.
-const API_BASE = (window.API_BASE || (window.location.port === '5000' ? '' : 'http://' + window.location.hostname + ':5000'));
+const API_BASE = (function() {
+    if (window.API_BASE !== undefined && window.API_BASE !== null) return window.API_BASE;
+    const host = window.location.hostname || 'localhost';
+    const port = window.location.port;
+    if (port && port === '5000') return '';
+    if (host === 'localhost' || host === '127.0.0.1') {
+        return 'http://' + host + ':5000';
+    }
+    return '';
+})();
 const API_KEY = '929573d4f9cd2cf581b99af64ee069e8'; // fallback direct-API key
 const GEO_PROXY = function(q) {
     if (API_BASE) return API_BASE + '/api/geo/search?q=' + encodeURIComponent(q);
