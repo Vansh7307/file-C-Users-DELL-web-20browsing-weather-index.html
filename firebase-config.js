@@ -121,8 +121,9 @@ const Backend = {
     ready: true,
     apiBase: API_BASE,
 
-    /** Returns true if the backend is reachable (warmup check). */
+/** Returns true if the backend is reachable (warmup check). */
     async ping() {
+        if (!API_BASE) return true; // localStorage mode always works
         try {
             const r = await api('/api/health');
             return r.ok;
@@ -138,56 +139,97 @@ const Backend = {
     /** True if a user is currently logged in. */
     isLoggedIn() { return !!authToken(); },
 
-    /** Register a new account. Returns {ok, token, user} or {ok:false,error}. */
+/** Register a new account. Returns {ok, token, user} or {ok:false,error}. */
     async register(name, email, password) {
-        try {
-            const r = await api('/api/auth/register', { method: 'POST', body: { name, email, password } });
-            if (r.ok && r.data && r.data.token) {
-                saveAuth(r.data.token, r.data.user);
-                return { ok: true, token: r.data.token, user: r.data.user };
-            }
-            return { ok: false, error: (r.data && r.data.error) || 'Registration failed.' };
-        } catch (e) {
-            return { ok: false, error: 'Cannot reach backend. Please check if the server is running (npm start).' };
+        // Try backend first
+        if (API_BASE) {
+            try {
+                const r = await api('/api/auth/register', { method: 'POST', body: { name, email, password } });
+                if (r.ok && r.data && r.data.token) {
+                    saveAuth(r.data.token, r.data.user);
+                    return { ok: true, token: r.data.token, user: r.data.user };
+                }
+                return { ok: false, error: (r.data && r.data.error) || 'Registration failed.' };
+            } catch (e) { /* fall through to localStorage */ }
         }
+        // Fallback: localStorage-based auth
+        if (!email || !password || password.length < 6) {
+            return { ok: false, error: 'Password must be at least 6 characters.' };
+        }
+        const users = JSON.parse(localStorage.getItem('weather_users') || '{}');
+        if (users[email]) {
+            return { ok: false, error: 'An account with this email already exists.' };
+        }
+        const token = 'tok_' + Math.random().toString(36).slice(2, 18) + Date.now().toString(36);
+        const user = { name: name || email.split('@')[0], email, createdAt: new Date().toISOString() };
+        users[email] = { password, user, token };
+        localStorage.setItem('weather_users', JSON.stringify(users));
+        saveAuth(token, user);
+        return { ok: true, token, user };
     },
 
     /** Log in. Returns {ok, token, user} or {ok:false,error}. */
     async login(email, password) {
-        try {
-            const r = await api('/api/auth/login', { method: 'POST', body: { email, password } });
-            if (r.ok && r.data && r.data.token) {
-                saveAuth(r.data.token, r.data.user);
-                return { ok: true, token: r.data.token, user: r.data.user };
-            }
-            return { ok: false, error: (r.data && r.data.error) || 'Login failed.' };
-        } catch (e) {
-            return { ok: false, error: 'Cannot reach backend. Please check if the server is running (npm start).' };
+        // Try backend first
+        if (API_BASE) {
+            try {
+                const r = await api('/api/auth/login', { method: 'POST', body: { email, password } });
+                if (r.ok && r.data && r.data.token) {
+                    saveAuth(r.data.token, r.data.user);
+                    return { ok: true, token: r.data.token, user: r.data.user };
+                }
+                return { ok: false, error: (r.data && r.data.error) || 'Login failed.' };
+            } catch (e) { /* fall through to localStorage */ }
         }
+        // Fallback: localStorage-based auth
+        const users = JSON.parse(localStorage.getItem('weather_users') || '{}');
+        const record = users[email];
+        if (!record || record.password !== password) {
+            return { ok: false, error: 'Invalid email or password.' };
+        }
+        const token = record.token || 'tok_' + Math.random().toString(36).slice(2, 18);
+        record.token = token;
+        users[email] = record;
+        localStorage.setItem('weather_users', JSON.stringify(users));
+        saveAuth(token, record.user);
+        return { ok: true, token, user: record.user };
     },
 
     /** Validate the stored token against the backend (returns user or null). */
     async me() {
         const tok = authToken();
         if (!tok) return null;
-        try {
-            const r = await api('/api/auth/me', { headers: { Authorization: 'Bearer ' + tok } });
-            if (r.ok && r.data && r.data.user) {
-                saveAuth(tok, r.data.user);
-                return r.data.user;
-            }
-            // token invalid -> clear
-            saveAuth(null, null);
-            return null;
-        } catch (e) {
-            return currentUser();
+        // Try backend first
+        if (API_BASE) {
+            try {
+                const r = await api('/api/auth/me', { headers: { Authorization: 'Bearer ' + tok } });
+                if (r.ok && r.data && r.data.user) {
+                    saveAuth(tok, r.data.user);
+                    return r.data.user;
+                }
+                // token invalid -> clear
+                saveAuth(null, null);
+                return null;
+            } catch (e) { /* fall through to localStorage */ }
         }
+        // Fallback: localStorage-based validation
+        const users = JSON.parse(localStorage.getItem('weather_users') || '{}');
+        for (const email in users) {
+            if (users[email].token === tok) {
+                const user = users[email].user;
+                saveAuth(tok, user);
+                return user;
+            }
+        }
+        // Token not found -> clear
+        saveAuth(null, null);
+        return null;
     },
 
     /** Log out (invalidates token on backend and clears locally). */
     async logout() {
         const tok = authToken();
-        if (tok) {
+        if (tok && API_BASE) {
             try { await api('/api/auth/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + tok } }); }
             catch (e) { /* ignore */ }
         }
@@ -270,8 +312,9 @@ const Backend = {
         return s[key] != null ? s[key] : null;
     },
 
-    /** Fake login helper (backend doesn't require auth; kept for parity). */
+/** Fake login helper (backend doesn't require auth; kept for parity). */
     async ensureLogin() {
+        if (!API_BASE) return true; // localStorage mode always works
         try {
             const r = await api('/api/health');
             return r.ok;
