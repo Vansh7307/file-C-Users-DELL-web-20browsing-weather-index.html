@@ -33,7 +33,9 @@
 // so all API calls fall back to localStorage + direct OpenWeatherMap calls.
 const API_BASE = (function () {
     if (window.__API_BASE__) return window.__API_BASE__;
-    const host = window.location.hostname || 'localhost';
+    // file:// protocol -> no backend available; use localStorage fallbacks
+    if (window.location.protocol === 'file:') return '';
+    const host = window.location.hostname || '';
     const port = window.location.port;
     // If we're on port 5000, the Node backend serves everything
     if (port && port === '5000') return '';
@@ -41,7 +43,7 @@ const API_BASE = (function () {
     if (host === 'localhost' || host === '127.0.0.1') {
         return 'http://' + host + ':5000';
     }
-    // On Firebase Hosting, custom domain, or file:// protocol -> no backend
+    // On Firebase Hosting, custom domain, or static hosting -> no backend
     return '';
 })();
 

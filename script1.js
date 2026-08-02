@@ -8,7 +8,8 @@ const DEFAULT_CITY = 'Karnal';
 // is unreachable, falls back to direct OpenWeatherMap/Nominatim calls.
 const API_BASE = (function() {
     if (window.API_BASE !== undefined && window.API_BASE !== null) return window.API_BASE;
-    const host = window.location.hostname || 'localhost';
+    if (window.location.protocol === 'file:') return ''; // file:// => no backend
+    const host = window.location.hostname || '';
     const port = window.location.port;
     if (port && port === '5000') return '';
     if (host === 'localhost' || host === '127.0.0.1') {
@@ -17,11 +18,59 @@ const API_BASE = (function() {
     return '';
 })();
 const API_KEY = '929573d4f9cd2cf581b99af64ee069e8'; // fallback direct-API key
-const GEO_PROXY = function(q) {
-    if (API_BASE) return API_BASE + '/api/geo/search?q=' + encodeURIComponent(q);
-    // Fallback to direct Nominatim when no backend
-    return 'https://nominatim.openstreetmap.org/search?format=json&limit=6&q=' + encodeURIComponent(q);
-};
+
+// Geocoding / place search. Tries, in order:
+//   1. The Node backend proxy (if configured / reachable)
+//   2. OpenWeatherMap's geocoding API (needs only the API key, reliable + CORS-enabled)
+//   3. OpenStreetMap's public Nominatim API (last resort)
+// Returns a normalized array of { name, region, lat, lon }.
+async function searchGeo(q) {
+    const tryOne = async function(url) {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('bad status ' + r.status);
+        return await r.json();
+    };
+
+    // 1) Backend proxy
+    if (API_BASE) {
+        try {
+            const raw = await tryOne(API_BASE + '/api/geo/search?q=' + encodeURIComponent(q));
+            if (Array.isArray(raw) && raw.length) {
+                return raw.map(function(p) {
+                    return {
+                        name: p.name || (p.display_name ? p.display_name.split(',')[0] : q),
+                        region: p.state || p.country || (p.display_name ? p.display_name.split(',').slice(1, 3).join(', ') : ''),
+                        lat: p.lat, lon: p.lon
+                    };
+                });
+            }
+        } catch (e) { /* fall through */ }
+    }
+
+    // 2) OpenWeatherMap geocoding
+    try {
+        const owm = await tryOne('https://api.openweathermap.org/geo/1.0/direct?q=' + encodeURIComponent(q) + '&limit=6&appid=' + API_KEY);
+        if (Array.isArray(owm) && owm.length) {
+            return owm.map(function(p) {
+                const parts = [];
+                if (p.state) parts.push(p.state);
+                if (p.country) parts.push(p.country);
+                return { name: p.name, region: parts.join(', '), lat: p.lat, lon: p.lon };
+            });
+        }
+    } catch (e) { /* fall through */ }
+
+    // 3) Nominatim
+    const raw = await tryOne('https://nominatim.openstreetmap.org/search?format=json&limit=6&q=' + encodeURIComponent(q));
+    if (!Array.isArray(raw)) return [];
+    return raw.map(function(p) {
+        return {
+            name: p.display_name.split(',')[0],
+            region: p.display_name.split(',').slice(1, 3).join(', '),
+            lat: p.lat, lon: p.lon
+        };
+    });
+}
 
 // ---------- Cache of DOM elements ----------
 const $ = (id) => document.getElementById(id);
@@ -460,8 +509,7 @@ els.cityInput.addEventListener('input', function () {
     }
     debounceTimer = setTimeout(async function () {
         try {
-const r = await fetch(GEO_PROXY(q));
-            const data = await r.json();
+            const data = await searchGeo(q);
             if (!data.length) {
                 els.searchResults.classList.remove('show');
                 return;
@@ -470,11 +518,11 @@ const r = await fetch(GEO_PROXY(q));
             data.slice(0, 6).forEach(function (place) {
                 const div = document.createElement('div');
                 div.className = 'search-result-item';
-                div.innerHTML = '<span>' + place.display_name.split(',')[0] + '</span><small>' + place.display_name.split(',').slice(0, 3).join(', ') + '</small>';
+                div.innerHTML = '<span>' + place.name + '</span><small>' + (place.region || '') + '</small>';
                 div.addEventListener('click', function () {
-                    els.cityInput.value = place.display_name.split(',')[0];
+                    els.cityInput.value = place.name;
                     els.searchResults.classList.remove('show');
-                    fetchWeather(place.display_name.split(',')[0]);
+                    fetchWeather(place.name);
                 });
                 els.searchResults.appendChild(div);
             });
@@ -826,8 +874,7 @@ fetchWeather = async function (city) {
         renderHistory();
         // Try to get coordinates for the map
         try {
-const r = await fetch(GEO_PROXY(clean));
-            const data = await r.json();
+            const data = await searchGeo(clean);
             if (data && data.length && data[0].lat && data[0].lon) {
                 currentCoords = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
             }
