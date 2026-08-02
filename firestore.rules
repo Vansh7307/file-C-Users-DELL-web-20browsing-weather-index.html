@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can read/write their own followed locations
+    match /followed_locations/{docId} {
+      allow read, write: if request.auth != null &&
+        (resource == null || resource.data.uid == request.auth.uid) &&
+        (request.resource.data.uid == request.auth.uid);
+    }
+
+    // Search history: users can write their own; read only by owner
+    match /search_history/{docId} {
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+
+    // City rankings: public read, admin-only write
+    match /city_rankings/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Settings: public read, owner write
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null &&
+        (resource == null || resource.data.uid == request.auth.uid) &&
+        (request.resource.data.uid == request.auth.uid);
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

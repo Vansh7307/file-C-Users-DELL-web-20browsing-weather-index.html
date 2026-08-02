@@ -1,0 +1,19 @@
+{
+  "name": "weather-dashboard-backend",
+  "version": "1.0.0",
+  "description": "Backend API server for the Weather Dashboard (AQI.in-style clone). Provides weather proxy, geocoding, follows, search history and settings.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
+
