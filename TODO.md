@@ -11,5 +11,6 @@
 - [x] Fix search-results rendering to use normalized `{name, region}` objects
 - [x] Verify all element IDs referenced in script1.js exist in index.html
 - [x] Verify Backend API surface in firebase-config.js matches script1.js usage
+- [x] Push changes to GitHub (commit ab61135, origin/main)
 - [ ] Verify by opening `index.html` in browser
 
