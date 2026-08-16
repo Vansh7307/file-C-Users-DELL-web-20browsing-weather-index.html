@@ -2,6 +2,7 @@ services:
   - type: web
     name: atmos-weather-api
     runtime: node
+    rootDir: .
     plan: free
     buildCommand: npm ci && npm run build
     startCommand: npm start
@@ -9,6 +10,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20
+      - key: NODE_ENV
+        value: production
       - key: WEATHER_API_KEY
         sync: false
       - key: CORS_ORIGIN

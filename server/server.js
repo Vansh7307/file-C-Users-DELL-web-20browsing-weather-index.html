@@ -4,7 +4,9 @@ const cors = require('cors');
 const path = require('path');
 const app = express();
 const startedAt = Date.now();
-const PORT = Number(process.env.PORT || 5000);
+// Render injects PORT. Bind all interfaces so Render's reverse proxy can reach us.
+const PORT = Number(process.env.PORT || 10000);
+const HOST = process.env.HOST || '0.0.0.0';
 const API_KEY = process.env.WEATHER_API_KEY || process.env.OPENWEATHER_API_KEY;
 const BASE = 'https://api.openweathermap.org';
 const allowedOrigins = (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -34,5 +36,9 @@ app.get('/api/geo/search', async (req, res, next) => { try { const q = String(re
 app.use(express.static(path.resolve(__dirname, '..'), { index: 'index.html', extensions: ['html'] }));
 app.use((req, res) => res.status(404).json({ error: 'Route not found.', path: req.path }));
 app.use((err, req, res, next) => { console.error(err.message); const status = err.status || 500; res.status(status).json({ error: status === 500 ? 'Unexpected server error.' : err.message, status, timestamp: new Date().toISOString() }); });
-if (require.main === module) app.listen(PORT, () => console.log(`Weather API listening on ${PORT}`));
+if (require.main === module) {
+  const server = app.listen(PORT, HOST, () => console.log(`Weather API listening on http://${HOST}:${PORT}`));
+  // Let Render drain in-flight requests during a deploy or restart.
+  process.on('SIGTERM', () => server.close(() => process.exit(0)));
+}
 module.exports = app;
