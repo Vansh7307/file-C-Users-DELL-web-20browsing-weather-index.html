@@ -1,7 +1,7 @@
 services:
   - type: web
-    name: atmos-weather-api
-    runtime: node
+    name: weather-web
+    env: node
     rootDir: .
     plan: free
     buildCommand: npm ci && npm run build
