@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 const state = { city: 'New York', coords: null, metric: false, map: null, overlay: null, layer: 'precipitation_new', apiKey: '' };
-const PRODUCTION_API_BASE = 'https://weather-web-jacu.onrender.com';
+const PRODUCTION_API_BASE = 'https://weather-web-backend-gy1d.onrender.com';
 const API_BASE = window.__API_BASE__ || ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') ? 'http://localhost:5000' : PRODUCTION_API_BASE);
 const icon = c => /thunder/i.test(c) ? '⛈' : /rain|drizzle/i.test(c) ? '🌧' : /snow/i.test(c) ? '❄' : /cloud/i.test(c) ? '☁' : '☀';
 const f = n => state.metric ? `${Math.round(n)}°C` : `${Math.round(n * 9 / 5 + 32)}°F`;
