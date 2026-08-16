@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: atmos-weather-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health-check
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: WEATHER_API_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false

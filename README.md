@@ -1,86 +1,33 @@
-# 🌦️ Weather Dashboard (AQI.in Style)
+# Atmos Weather Intelligence
 
-A fully responsive weather dashboard cloned from AQI.in's Karnal weather page, with live data from **OpenWeatherMap** and a **Firebase** backend for Follow, Rankings, Search History, and Settings.
+Production-oriented weather dashboard with a Node/Express API gateway and five demo-ready views: live conditions, forecast chart, radar layers, air quality, and system telemetry.
 
-![Stack](https://img.shields.io/badge/Stack-HTML%20%7C%20CSS%20%7C%20JS%20%7C%20Firebase-blue)
-
----
-
-## ✨ Features
-
-- **Live weather** — current conditions, hourly forecast (24h), 10-day forecast
-- **Weather parameters** — wind dial, gust, cloud cover, visibility, precipitation, pressure gauge, UV index
-- **Sunrise/Sunset** arc with daylight duration
-- **Monthly averages** + **city rankings**
-- **Search** — autocomplete any city (OpenStreetMap Nominatim)
-- **Locate me** — geolocation-based weather
-- **Firebase backend**:
-  - ❤️ Follow locations (saved per-user)
-  - 🔎 Search history
-  - 🏆 City rankings (from DB, falls back to live API)
-  - ⚙️ Settings (AQI standard / temp unit)
-  - 🔐 Anonymous Auth (works out of the box)
-  - 📦 **localStorage fallback** — everything works even without configuring Firebase
-
----
-
-## 🚀 Quick Start (local)
-
-Just open `index.html` in a browser. The site loads **Karnal** by default and works with the localStorage fallback.
-
-## ☁️ Firebase Backend Setup
-
-1. Create a project at [console.firebase.google.com](https://console.firebase.google.com) (Spark plan = free).
-2. **Add a Web App** → copy the config object.
-3. Replace the placeholders in **`firebase-config.js`** with your real values.
-4. Enable **Authentication → Sign-in method → Anonymous**.
-5. Create **Firestore Database** and deploy rules:
+## Run locally
 
 ```bash
-npm install -g firebase-tools
-firebase login
-firebase use --add YOUR_PROJECT_ID
-firebase deploy --only firestore:rules
+npm install
+copy .env.example .env
+# Set WEATHER_API_KEY in .env, then load it in your shell or deployment environment
+npm start
 ```
 
-> Collections are created automatically on first write.
+Open `http://localhost:5000`. The API key never reaches the browser.
 
-## 🚢 Deploy to Firebase Hosting
+## API
 
-```bash
-firebase deploy --only hosting
-```
+- `GET /api/weather/current?q=New%20York` or `?lat=40.71&lon=-74.00`
+- `GET /api/weather/forecast?...` — normalized 24-hour and 7-day data
+- `GET /api/weather/air-quality?...` — AQI and PM2.5, PM10, CO, NO2, O3
+- `GET /api/weather/alerts?lat=...&lon=...` — National Weather Service alerts
+- `GET /api/health-check` — Render health probe and cache telemetry
 
-### GitHub Actions auto-deploy
-Add these **repository secrets** in GitHub → Settings → Secrets:
-- `FIREBASE_TOKEN` — run `firebase login:ci` to get one
-- `FIREBASE_PROJECT_ID` — your Firebase project id
+Responses are cached in-memory for two minutes. Provider outages, invalid places, and missing configuration return structured JSON errors rather than server crashes.
 
-Every push to `main` auto-deploys to Firebase Hosting.
+## Deploy to Render
 
----
+1. Push this repository and create a Blueprint from `render.yaml`, or create a Node Web Service with build command `npm ci && npm run build` and start command `npm start`.
+2. Set `WEATHER_API_KEY` to an OpenWeather API key (Current Weather, 5 Day / 3 Hour Forecast, Air Pollution, and Weather Maps access).
+3. Set `CORS_ORIGIN` to the exact public client origins, comma separated. If this service serves the included client, it can remain blank.
+4. Render uses `/api/health-check` for health checks. Add the deployed URL to your uptime monitor to avoid free-tier cold starts during the demo.
 
-## 📁 Project Structure
-
-```
-├── index.html          # Main page
-├── style.css           # Styles (dark glass-morphism theme)
-├── script1.js          # Weather logic + UI rendering
-├── firebase-config.js  # Firebase init + backend API (localStorage fallback)
-├── firebase.json       # Firebase hosting config
-├── firestore.rules     # Security rules
-├── firestore.indexes.json
-└── .firebaserc         # Firebase project binding
-```
-
-## 🔑 Data Sources
-
-- **OpenWeatherMap** — current weather + 5-day forecast (free tier)
-- **OpenStreetMap Nominatim** — city search autocomplete
-- **Firebase** — Follows, Search history, Rankings, Settings
-- AQI, UV index, and gust speed are estimated from available weather data.
-
-## 📄 License
-
-MIT — free to use.
-
+Do not commit `.env` or an API key. `render.yaml` intentionally marks secrets as dashboard-supplied.
